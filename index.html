@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الاشتراكات</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>مرحبًا بك في نظام الاشتراكات</h1>
+
+        <!-- أزرار التنقل -->
+        <div class="buttons">
+            <button class="button" onclick="loadSubscriptions()">عرض الاشتراكات</button>
+            <button class="button" onclick="loadExpiredSubscriptions()">الاشتراكات المنتهية</button>
+            <button class="button" onclick="addSubscription()">إضافة اشتراك</button>
+            <button class="button" onclick="deleteSubscription()">حذف اشتراك</button>
+            <button class="button" onclick="searchSubscription()">البحث عن اشتراك</button>
+        </div>
+
+        <!-- عرض الاشتراكات -->
+        <div id="subscription-container" class="table-container">
+            <!-- سيتم عرض الجدول هنا -->
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+    <script src="scripts.js"></script>
+</body>
+</html>
