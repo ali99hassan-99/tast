@@ -8,7 +8,14 @@ function loadSubscriptions() {
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
-            subscriptionsData = XLSX.utils.sheet_to_json(sheet);
+            subscriptionsData = XLSX.utils.sheet_to_json(sheet, { raw: true });  // لا نقوم بتحويل التواريخ هنا مباشرة
+
+            // تحويل التواريخ إلى تنسيق صالح
+            subscriptionsData.forEach(subscription => {
+                if (subscription["تاريخ الاشتراك"]) {
+                    subscription["تاريخ الاشتراك"] = convertExcelDateToJSDate(subscription["تاريخ الاشتراك"]);
+                }
+            });
 
             // تحديث حالة الاشتراك بناءً على 30 يومًا من تاريخ الاشتراك
             updateSubscriptionStatus(subscriptionsData);
@@ -24,6 +31,18 @@ function loadSubscriptions() {
             console.error("خطأ في تحميل الملف:", error);
             alert("حدث خطأ أثناء تحميل الملف. تأكد من أن الملف موجود في الجذر!");
         });
+}
+
+// دالة لتحويل تاريخ Excel إلى تاريخ JavaScript
+function convertExcelDateToJSDate(excelDate) {
+    // إذا كان التاريخ في Excel هو رقم (مثلاً 44197 يعني 2021-01-01)
+    if (typeof excelDate === 'number') {
+        const unixEpoch = new Date(1899, 11, 30).getTime();  // 1899-12-30 هو التاريخ الأساسي في Excel
+        const jsDate = new Date(unixEpoch + excelDate * 86400000);  // تحويل الرقم إلى تاريخ JavaScript
+        return jsDate;
+    }
+    // إذا كان التاريخ بالفعل بتنسيق صحيح، نعيده كما هو
+    return new Date(excelDate);
 }
 
 // دالة لتحديث حالة الاشتراك بناءً على 30 يومًا من تاريخ الاشتراك
@@ -42,11 +61,18 @@ function updateSubscriptionStatus(data) {
             return;
         }
 
+        // حساب تاريخ الانتهاء (بعد 30 يومًا من تاريخ الاشتراك)
+        const expirationDate = new Date(subscriptionDate);
+        expirationDate.setDate(expirationDate.getDate() + 30); // إضافة 30 يومًا للاشتراك
+
+        // حفظ تاريخ الانتهاء
+        subscription["تاريخ الانتهاء"] = expirationDate.toLocaleDateString("en-GB");
+
         // حساب الفرق بين تاريخ الاشتراك وتاريخ اليوم
         const daysDifference = Math.floor((currentDate - subscriptionDate) / (1000 * 3600 * 24));
 
         // تنسيق تاريخ الاشتراك ليظهر بشكل صحيح (ميلادي)
-        subscription["تاريخ الاشتراك"] = subscriptionDate.toLocaleDateString("en-GB"); // تنسيق التاريخ الميلادي
+        subscription["تاريخ الاشتراك"] = subscriptionDate.toLocaleDateString("en-GB");
 
         // تحديد حالة الاشتراك بناءً على الفرق بين تاريخ الاشتراك وتاريخ اليوم
         if (daysDifference > 30) {
@@ -72,6 +98,7 @@ function displaySubscriptions(data) {
                 <tr>
                     <th>الاسم</th>
                     <th>تاريخ الاشتراك</th>
+                    <th>تاريخ الانتهاء</th>
                     <th>حالة الاشتراك</th>
                     <th>رقم الهاتف</th>
                     <th>نوع الاشتراك</th>
@@ -87,6 +114,7 @@ function displaySubscriptions(data) {
             <tr>
                 <td>${subscription["الاســــــم"] || "غير محدد"}</td>
                 <td>${subscription["تاريخ الاشتراك"] || "غير محدد"}</td>
+                <td>${subscription["تاريخ الانتهاء"] || "غير محدد"}</td>
                 <td>${subscription["حالة الاشتراك"] || "غير محدد"}</td>
                 <td>${subscription["رقم الهاتف"] || "غير محدد"}</td>
                 <td>${subscription["نوع الاشتراك"] || "غير محدد"}</td>
@@ -115,9 +143,10 @@ function renewSubscription(name, isAutomatic) {
     let newDate;
 
     if (isAutomatic) {
-        newDate = new Date().toISOString().split('T')[0]; // تاريخ اليوم الميلادي
+        // تجديد تلقائي: تعيين تاريخ اليوم
+        newDate = new Date().toISOString().split('T')[0];  // الحصول على تاريخ اليوم بصيغة "YYYY-MM-DD"
     } else {
-        // طلب إدخال تاريخ يدوي
+        // تجديد يدوي: طلب إدخال تاريخ من المستخدم
         newDate = prompt("أدخل تاريخ التجديد (YYYY-MM-DD):");
         if (!newDate || !isValidDate(newDate)) {
             alert("تاريخ غير صالح!");
@@ -125,17 +154,25 @@ function renewSubscription(name, isAutomatic) {
         }
     }
 
-    // تحديث تاريخ الاشتراك
+    // تحديث تاريخ الاشتراك في البيانات
     subscription["تاريخ الاشتراك"] = newDate;
 
-    // تحديث حالة الاشتراك
+    // تحديث تاريخ الانتهاء بناءً على تاريخ الاشتراك (إضافة 30 يومًا)
+    const subscriptionDate = new Date(newDate);
+    const expirationDate = new Date(subscriptionDate);
+    expirationDate.setDate(expirationDate.getDate() + 30);  // إضافة 30 يومًا للاشتراك
+
+    // تحديث تاريخ الانتهاء
+    subscription["تاريخ الانتهاء"] = expirationDate.toLocaleDateString("en-GB");
+
+    // تحديث حالة الاشتراك بناءً على تاريخ الانتهاء
     updateSubscriptionStatus(subscriptionsData);
 
     // إعادة عرض الجدول مع البيانات المحدثة
     displaySubscriptions(subscriptionsData);
 }
 
-// دالة للتحقق من صلاحية التاريخ المدخل
+// دالة للتحقق من صلاحية التاريخ المدخل (YYYY-MM-DD)
 function isValidDate(date) {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     return regex.test(date);
